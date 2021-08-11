@@ -1,0 +1,156 @@
+Here is my working app.js code. I also got some tips that I posted under the previous video on how to applying API to the project.
+
+Please hit this post up if it helped you, so other people don't need to struggle on this like me...
+
+
+
+const express = require("express");
+const request = require("request");
+const bodyParser = require("body-parser");
+const https = require("https");
+const client = require("@mailchimp/mailchimp_marketing"); // you need to add dependency first. See tips.
+ 
+const app = express();
+app.use(express.static("public"));
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
+ 
+app.get("/", function(req, res) {
+  res.sendFile(__dirname + "/signup.html");
+});
+ 
+client.setConfig({
+  apiKey: "YOUR API KEY",
+  server: "YOUR SERVER NAME",
+});
+ 
+app.post("/", function(req, res) {
+  const firstName = req.body.fName;
+  const lastName = req.body.lName;
+  const email = req.body.email;
+  console.log(firstName, lastName, email);
+  const subscribingUser = {
+    firstName: firstName,
+    lastName: lastName,
+    email: email
+  }
+ 
+  const run = async () => {
+    try {
+      const response = await client.lists.addListMember("YOUR LIST ID", {
+        email_address: subscribingUser.email,
+        status: "subscribed",
+        merge_fields: {
+          FNAME: subscribingUser.firstName,
+          LNAME: subscribingUser.lastName
+        }
+      });
+      console.log(response);
+      res.sendFile(__dirname + "/success.html");
+    } catch (err) {
+      console.log(err.status);
+      res.sendFile(__dirname + "/failure.html");
+    }
+  };
+ 
+  run();
+});
+ 
+app.post("/failure", function(req, res) {
+  res.redirect("/");
+});
+ 
+app.listen(3000, function() {
+  console.log("Server is running on port 3000.");
+});
+
+
+* Since our response doesn't include status code, I am using a try-catch structure here to achieve same function.
+
+
+
+Alternative to Jumbotron
+
+Thanks to StackOverFlow, I found this could be a good alternative to Jumbotron.
+
+  <div class="bg-light p-5 rounded-lg m-3">
+    <h1 class="display-4">Uh oh!</h1>
+    <p class="lead">There was a problem signing you up. Please try again later.</p>
+  </div>
+
+
+----post on previous video----
+
+Hi guys, I noticed that Bootstrap sample and Mailchimp's API have changed a lot since Angela posted this video. Here I would like to share several tips and my solution which finally works after couple hours of debugging.
+
+If you're encountering problem in this video, I hope my notes could help you.
+
+
+
+Bootstrap
+
+The html code on the template from Bootstrap are slightly different from the video.
+
+Here are some tips:
+
+- make sure you added " action="/" method="POST" " inside the form tag. There is a main tag above the form tag which is easy to get confused.
+
+- make sure you updated Bootstrap cdn
+
+- all link tags under <!-- Favicons --> can be removed
+
+
+
+app.js
+
+Mailchimp has significantly changed its web design and API, which makes lots of people get confused including me.
+
+
+
+Here are some tips for using the API:
+
+- If you cannot locate your account name, just add "/account/" after your url.
+
+- Steps for adding Mailchimp's API to your project:
+
+1. run npm install @mailchimp/mailchimp_marketing in hyper. Make sure you are inside the folder of your project.
+
+2. check your package.json file, make sure @mailchimp/mailchimp_marketing has been added in your dependencies.
+
+3. require @mailchimp/mailchimp_marketing in your app.js by adding const client = require("@mailchimp/mailchimp_marketing"); on the top.
+
+4. set your api key and server by adding client.setConfig({apiKey: "YOUR API KEY", server: "SERVER",}); . Make sure you put correct api key and server here. Server name is the part after the dash in your API key. It should be something like "us1".
+
+5. inside the callback function of app.post().
+
+a. construct a JavaScript object that contains the name and email. const subscribingUser = {firstName: firstName, lastName: lastName, email: email}
+
+b. based on Mailchimp's API document, in order to add a new member in the list, we can use following code:
+
+const run = async () => {
+const response = await client.lists.addListMember("YOUR LIST ID", {
+email_address: subscribingUser.email,
+status: "subscribed",
+merge_fields: {
+FNAME: subscribingUser.firstName,
+LNAME: subscribingUser.lastName
+}
+});
+console.log(response); // (optional)
+};
+make sure you replace the YOUR LIST ID with your list id. Also this chunk of code should be added below the subscribingUser object in step 5.a, but should still inside the callback function of app.post().
+
+c. add run(); after 5.b (inside the callback function of app.post()).
+
+- I comment out all Angela's code on deploying API, but keep all other codes, such as app.listen(), app.get(), app.use() untouched.
+
+
+If you used the code from the start post then replace (in line 46)
+
+console.log(err.status);
+with
+
+console.log("====== ERROR ======");
+console.log(JSON.parse(err.response.error.text).detail);
+and see what the console prints now
